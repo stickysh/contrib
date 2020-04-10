@@ -3,6 +3,7 @@ package openweather
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -65,6 +66,7 @@ func (c *conn) openWeatherQuery(query string) ([]byte, error) {
 	// Create and endpoint
 	ep :=  c.buildEndpoint(query)
 
+	log.Println(ep)
 	// Send the request
 	res, err := c.client.Get(ep)
 	if err != nil {
@@ -74,7 +76,7 @@ func (c *conn) openWeatherQuery(query string) ([]byte, error) {
 
 	// Error on
 	if res.StatusCode != 200 {
-		return nil, fmt.Errorf("")
+		return nil, fmt.Errorf("error: http status not ok, %v", res)
 	}
 
 	// Response from open get_weather

@@ -1,9 +1,9 @@
 package openweather
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -26,9 +26,25 @@ type SunTime struct {
 	Sunset  time.Time `json:"sunset"`
 }
 
+func (o *SunTime) UnmarshalJSON(data []byte) error {
+	var f interface{}
+	err := json.Unmarshal(data, &f)
+	if err != nil { return err; }
+	m := f.(map[string]interface{})
+	for k, v := range m {
+		switch k {
+		case "country": o.Country  = v.(string)
+		case "sunrise": o.Sunrise = time.Unix(int64(v.(float64)), 0)
+		case "sunset": o.Sunset = time.Unix(int64(v.(float64)), 0)
+		}
+	}
+
+	return nil
+}
+
 type MainWeather struct {
 	Temp float64 `json:"temp"`
-	FeelsLike string `json:"feels_like"`
+	FeelsLike float64 `json:"feels_like"`
 	TempMin float64 `json:"temp_min"`
 	TempMax float64 `json:"temp_max"`
 	Pressure float64 `json:"pressure"`
@@ -66,7 +82,6 @@ func (c *conn) openWeatherQuery(query string) ([]byte, error) {
 	// Create and endpoint
 	ep :=  c.buildEndpoint(query)
 
-	log.Println(ep)
 	// Send the request
 	res, err := c.client.Get(ep)
 	if err != nil {
@@ -76,7 +91,7 @@ func (c *conn) openWeatherQuery(query string) ([]byte, error) {
 
 	// Error on
 	if res.StatusCode != 200 {
-		return nil, fmt.Errorf("error: http status not ok, %v", res)
+		return nil, fmt.Errorf("level=error,msg=http status not ok,err=%v", res)
 	}
 
 	// Response from open get_weather

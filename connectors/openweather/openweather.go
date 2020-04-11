@@ -1,9 +1,27 @@
+/*
+Copyright 2015 Sticky Contrib Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+*/
+
 package openweather
 
 import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -26,6 +44,8 @@ type SunTime struct {
 	Sunset  time.Time `json:"sunset"`
 }
 
+// UnmarshalJSON reads in a SunTime from its JSON format.
+// Used to parse unix epoc to time.time
 func (o *SunTime) UnmarshalJSON(data []byte) error {
 	var f interface{}
 	err := json.Unmarshal(data, &f)
@@ -64,7 +84,12 @@ type conn struct {
 	client http.Client
 }
 
+// New create a new openweather api client
 func New(apiKey string, unitSys string) *conn{
+	if unitSys == "" {
+		unitSys = "imperial"
+	}
+
 	return &conn{
 		fmt.Sprintf("http://api.openweathermap.org/data/2.5/weather?units=%v&appid=%v", unitSys, apiKey),
 		http.Client{
@@ -73,37 +98,49 @@ func New(apiKey string, unitSys string) *conn{
 	}
 }
 
-func (c *conn) buildEndpoint(query string) string {
+func (c *conn) buildEp(query string) string {
 	return fmt.Sprint(c.baseURI, "&", query)
 }
 
-func (c *conn) openWeatherQuery(query string) ([]byte, error) {
+func (c *conn) openWeatherQuery(query string) (Response, error) {
 
-	// Create and endpoint
-	ep :=  c.buildEndpoint(query)
+	// Create an endpoint
+	ep :=  c.buildEp(query)
 
 	// Send the request
 	res, err := c.client.Get(ep)
 	if err != nil {
-		return nil, err
+		log.Printf("[__sticky]connector=openweather|level=error,msg=couldn't send request,err=%s\n", err)
+		return Response{}, err
 	}
 	defer res.Body.Close()
 
 	// Error on
 	if res.StatusCode != 200 {
-		return nil, fmt.Errorf("level=error,msg=http status not ok,err=%v", res)
+		log.Printf("[__sticky]connector=openweather|level=error,msg=http status not ok,err=%s\n", err)
+		return Response{}, fmt.Errorf("error: http status not ok, errormsg=%v", res)
 	}
 
 	// Response from open get_weather
 	raw, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, err
+		log.Printf("[__sticky]connector=openweather|level=error,msg=failed to query,errormsg=%s,payload=%s\n", err, raw)
+		return Response{}, err
 	}
 
-	return raw, nil
+	// Parse get_weather response
+	var owData Response
+	err = json.Unmarshal(raw, &owData)
+	if err != nil {
+		log.Printf("[__sticky]connector=openweather|level=error,msg=failed to unmarshal,errormsg=%s,payload=%s\n", err, raw)
+		return Response{}, err
+	}
+
+	return owData, nil
 }
 
-func (c *conn) QueryByName(city string, state string, country string) ([]byte, error){
+// QueryByName queries the openweather api by city, state, country name
+func (c *conn) QueryByName(city string, state string, country string) (Response, error){
 	temp := []string{city, state, country}
 	q := strings.Builder{}
 	q.WriteString("q=")

@@ -29,7 +29,7 @@ import (
 
 type Coordinate struct {
 	Lon float64 `json:"lon"`
-	lat float64 `json:"lon"`
+	Lat float64 `json:"lat"`
 }
 
 type WeatherCond struct {
@@ -106,25 +106,26 @@ func (c *conn) openWeatherQuery(query string) (Response, error) {
 
 	// Create an endpoint
 	ep :=  c.buildEp(query)
-
+	//req.Header.Set("User-Agent", "%s@forge.sh /1.0")
 	// Send the request
 	res, err := c.client.Get(ep)
 	if err != nil {
-		log.Printf("[__sticky]connector=openweather|level=error,msg=couldn't send request,err=%s\n", err)
+		log.Printf("[__sticky]binder=openweather|level=error,msg=couldn't send request,err=%s\n", err)
 		return Response{}, err
 	}
 	defer res.Body.Close()
 
 	// Error on
 	if res.StatusCode != 200 {
-		log.Printf("[__sticky]connector=openweather|level=error,msg=http status not ok,err=%s\n", err)
+		b, _ := ioutil.ReadAll(res.Body)
+		log.Printf("[__sticky]binder=openweather|level=error,msg=http status not ok,err=%s,req_nody=%s\n", err, b)
 		return Response{}, fmt.Errorf("error: http status not ok, errormsg=%v", res)
 	}
 
 	// Response from open get_weather
 	raw, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Printf("[__sticky]connector=openweather|level=error,msg=failed to query,errormsg=%s,payload=%s\n", err, raw)
+		log.Printf("[__sticky]binder=openweather|level=error,msg=failed to query,errormsg=%s,payload=%s\n", err, raw)
 		return Response{}, err
 	}
 
@@ -132,7 +133,7 @@ func (c *conn) openWeatherQuery(query string) (Response, error) {
 	var owData Response
 	err = json.Unmarshal(raw, &owData)
 	if err != nil {
-		log.Printf("[__sticky]connector=openweather|level=error,msg=failed to unmarshal,errormsg=%s,payload=%s\n", err, raw)
+		log.Printf("[__sticky]binder=openweather|level=error,msg=failed to unmarshal,errormsg=%s,payload=%s\n", err, raw)
 		return Response{}, err
 	}
 
